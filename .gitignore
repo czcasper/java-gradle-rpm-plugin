@@ -9,3 +9,5 @@ out
 *.ipr
 *.iml
 *.iws
+/.nb-gradle/profiles/private/
+/.nb-gradle/private/
