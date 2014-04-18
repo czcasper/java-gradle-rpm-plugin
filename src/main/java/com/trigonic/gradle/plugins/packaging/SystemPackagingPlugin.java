@@ -14,33 +14,33 @@
  * limitations under the License.
  */
 
-package com.trigonic.gradle.plugins.packaging
+package com.trigonic.gradle.plugins.packaging;
 
-import com.trigonic.gradle.plugins.deb.Deb
-import com.trigonic.gradle.plugins.rpm.Rpm
-import org.gradle.api.Plugin
-import org.gradle.api.Project
-import org.gradle.api.logging.Logger
-import org.gradle.api.logging.Logging
+import com.trigonic.gradle.plugins.deb.Deb;
+import com.trigonic.gradle.plugins.rpm.Rpm;
+import org.gradle.api.Plugin;
+import org.gradle.api.Project;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
 
 /**
  * Create implicit tasks, which will inherit from the ospackage extension.
  */
 public class SystemPackagingPlugin implements Plugin<Project> {
-    private static Logger logger = Logging.getLogger(SystemPackagingPlugin);
+    private static Logger logger = Logging.getLogger(SystemPackagingPlugin.class);
 
-    Project project
-    Deb debTask
-    Rpm rpmTask
+    Project project;
+    Deb debTask;
+    Rpm rpmTask;
 
-    void apply(Project project) {
+    @Override
+    public void apply(Project project) {
 
-        this.project = project
+        this.project = project;
 
-        project.plugins.apply(SystemPackagingBasePlugin.class)
-        debTask = project.task([type: Deb], 'buildDeb')
-        rpmTask = project.task([type: Rpm], 'buildRpm')
-
+        this.project.getPlugins().apply(SystemPackagingBasePlugin.class);
+        rpmTask=(Rpm) project.getTasks().getByName("buildRpm");
+        debTask= (Deb) project.getTasks().getByName("buildDeb");
     }
 
 }

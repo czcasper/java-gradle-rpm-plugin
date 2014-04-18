@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package com.trigonic.gradle.plugins.packaging
+package com.trigonic.gradle.plugins.packaging;
 
-import org.gradle.api.Plugin
-import org.gradle.api.Project
-import org.gradle.api.plugins.BasePlugin
+import org.gradle.api.Plugin;
+import org.gradle.api.Project;
+import org.gradle.api.plugins.BasePlugin;
 
-class CommonPackagingPlugin implements Plugin<Project> {
-    void apply(Project project) {
-        project.plugins.apply(BasePlugin.class)
-
+public class CommonPackagingPlugin implements Plugin<Project> {
+    
+    public void apply(Project project){
+        project.getPlugins().apply(BasePlugin.class);
         // Used to be used to add metaClass properties to CopySpec, but now it's done with CopySpecEnhancement
-    }
+    }    
 }

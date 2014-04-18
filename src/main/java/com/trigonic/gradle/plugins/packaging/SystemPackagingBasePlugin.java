@@ -14,45 +14,45 @@
  * limitations under the License.
  */
 
-package com.trigonic.gradle.plugins.packaging
+package com.trigonic.gradle.plugins.packaging;
 
-import com.trigonic.gradle.plugins.deb.DebPlugin
-import com.trigonic.gradle.plugins.rpm.RpmPlugin
-import org.gradle.api.Plugin
-import org.gradle.api.Project
-import org.gradle.api.internal.ConventionMapping
-import org.gradle.api.internal.IConventionAware
-import org.gradle.api.logging.Logger
-import org.gradle.api.logging.Logging
-import org.gradle.api.plugins.BasePlugin
+import com.trigonic.gradle.plugins.deb.DebPlugin;
+import com.trigonic.gradle.plugins.rpm.RpmPlugin;
+import org.gradle.api.Plugin;
+import org.gradle.api.Project;
+import org.gradle.api.internal.ConventionMapping;
+import org.gradle.api.internal.IConventionAware;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
+import org.gradle.api.plugins.BasePlugin;
+import org.gradle.api.plugins.ExtensionContainer;
+import org.gradle.api.plugins.PluginContainer;
 
-class SystemPackagingBasePlugin implements Plugin<Project> {
-    private static Logger logger = Logging.getLogger(SystemPackagingBasePlugin);
+public class SystemPackagingBasePlugin implements Plugin<Project> {
+    private static Logger logger = Logging.getLogger(SystemPackagingBasePlugin.class);
 
-    Project project
-    ProjectPackagingExtension extension
+    protected Project project;
+    protected ProjectPackagingExtension extension;
 
-    public static final String taskBaseName = 'ospackage'
+    public static final String taskBaseName = "ospackage";
 
-    void apply(Project project) {
+    @Override
+    public void apply(Project project) {
 
-        this.project = project
+        this.project = project;
 
         // Extension is created before plugins are, so tasks
-        extension = createExtension()
-        RpmPlugin.applyAliases(extension) // RPM Specific aliases
+        ExtensionContainer extensions = project.getExtensions();
+        extension = extensions.create(taskBaseName, ProjectPackagingExtension.class, project);
+           // Ensure extension is IConventionAware
+        ConventionMapping mapping = ((IConventionAware) extension).getConventionMapping();
+     
+//        RpmPlugin.applyAliases(extension); // RPM Specific aliases
 
-        project.plugins.apply(BasePlugin.class)
-        project.plugins.apply(RpmPlugin.class)
-        project.plugins.apply(DebPlugin.class)
+        PluginContainer plugins = project.getPlugins();
+        plugins.apply(BasePlugin.class);
+        plugins.apply(RpmPlugin.class);
+        plugins.apply(DebPlugin.class);
     }
 
-    ProjectPackagingExtension createExtension() {
-        ProjectPackagingExtension extension = project.extensions.create(taskBaseName, ProjectPackagingExtension, project)
-
-        // Ensure extension is IConventionAware
-        ConventionMapping mapping = ((IConventionAware) extension).getConventionMapping()
-
-        return extension
-    }
-}
+ }

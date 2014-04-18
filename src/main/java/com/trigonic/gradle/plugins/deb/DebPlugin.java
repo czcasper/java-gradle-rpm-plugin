@@ -14,23 +14,23 @@
  * limitations under the License.
  */
 
-package com.trigonic.gradle.plugins.deb
+package com.trigonic.gradle.plugins.deb;
 
-import com.trigonic.gradle.plugins.packaging.CommonPackagingPlugin
-import org.gradle.api.Plugin
-import org.gradle.api.Project
+import com.trigonic.gradle.plugins.packaging.CommonPackagingPlugin;
+import org.gradle.api.Plugin;
+import org.gradle.api.Project;
 
-class DebPlugin implements Plugin<Project> {
-    void apply(Project project) {
-        project.plugins.apply(CommonPackagingPlugin.class)
-
+public class DebPlugin implements Plugin<Project> {
+    public void apply(Project project) {
+        project.getPlugins().apply(CommonPackagingPlugin.class);
+        project.getExtensions().add("deb", Deb.class);
         // Register class, so users don't have to add imports
-        project.ext.Deb = Deb.class
+//        project.ext.Deb = Deb.class
 
         // Some defaults, if not set by the user
-        project.tasks.withType(Deb) { Deb task ->
-            task.applyConventions()
-        }
+//        project.tasks.withType(Deb) { Deb task ->
+//            task.applyConventions()
+//        }
 
     }
 }

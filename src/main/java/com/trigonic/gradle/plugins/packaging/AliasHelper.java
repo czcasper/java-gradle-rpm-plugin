@@ -1,15 +1,15 @@
-package com.trigonic.gradle.plugins.packaging
+package com.trigonic.gradle.plugins.packaging;
 
-import org.gradle.api.logging.Logger
-import org.gradle.api.logging.Logging
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
 
-import java.lang.reflect.Field
-import java.lang.reflect.Modifier
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 
-class AliasHelper {
-    private static Logger logger = Logging.getLogger(AliasHelper);
+public class AliasHelper {
+//    private static Logger logger = Logging.getLogger(AliasHelper);
 
-    static <T extends Enum<T>> void aliasEnumValues(T[] values, dynAware) {
+/*    static <T extends Enum<T>> void aliasEnumValues(T[] values, dynAware) {
         for (T value : values) {
             assert !dynAware.hasProperty(value.name())
             logger.info("Setting ${value.name()} onto ${dynAware}")
@@ -34,5 +34,5 @@ class AliasHelper {
             }
         }
     }
-
+*/
 }

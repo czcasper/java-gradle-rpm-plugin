@@ -13,54 +13,72 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.trigonic.gradle.plugins.deb;
 
-package com.trigonic.gradle.plugins.deb
+import com.trigonic.gradle.plugins.helpers.CallableContainer;
+import com.trigonic.gradle.plugins.packaging.AbstractPackagingCopyAction;
+import com.trigonic.gradle.plugins.packaging.SystemPackagingTask;
+import org.gradle.api.internal.ConventionMapping;
+import org.gradle.api.internal.IConventionAware;
 
-import com.trigonic.gradle.plugins.packaging.AbstractPackagingCopyAction
-import com.trigonic.gradle.plugins.packaging.SystemPackagingTask
-import org.gradle.api.internal.ConventionMapping
-import org.gradle.api.internal.IConventionAware
+public class Deb extends SystemPackagingTask {
 
-class Deb extends SystemPackagingTask {
     static final String DEB_EXTENSION = "deb";
 
     Deb() {
-        super()
-        extension = DEB_EXTENSION
+        super();
+        setExtension(DEB_EXTENSION);
     }
 
     @Override
-    String assembleArchiveName() {
-        String name = getPackageName();
-        name += getVersion() ? "_${getVersion()}" : ''
-        name += getRelease() ? "-${getRelease()}" : ''
-        name += getArchString() ? "_${getArchString()}" : ''
-        name += getExtension() ? ".${getExtension()}" : ''
+    public String assembleArchiveName() {
+        String name = "";
+        if (parentExten != null) {
+            name = parentExten.getPackageName();
+            name += parentExten.getVersion();
+            name += parentExten.getRelease();
+            name += getArchString();
+            name += super.getExtension();
+        }
+
         return name;
     }
 
     @Override
     protected String getArchString() {
-        return 'all'; // TODO Make this configurable
+        return "all"; // TODO Make this configurable
     }
 
     @Override
-    AbstractPackagingCopyAction createCopyAction() {
-        return new DebCopyAction(this)
+    public AbstractPackagingCopyAction createCopyAction() {
+        return new DebCopyAction(this);
     }
 
     @Override
     protected void applyConventions() {
-        super.applyConventions()
+        super.applyConventions();
 
         // For all mappings, we're only being called if it wasn't explicitly set on the task. In which case, we'll want
         // to pull from the parentExten. And only then would we fallback on some other value.
-        ConventionMapping mapping = ((IConventionAware) this).getConventionMapping()
+        ConventionMapping mapping = ((IConventionAware) this).getConventionMapping();
 
         // Could come from extension
-        mapping.map('uid', { parentExten?.getUid()?:0 })
-        mapping.map('gid', { (parentExten?.getGid())?:0 })
-        mapping.map('packageGroup', { parentExten?.getPackageGroup() ?: 'java' })
+        Integer uid = 0;
+        if (parentExten != null) {
+            uid = parentExten.getUid();
+        }
+        mapping.map("uid", new CallableContainer<>(uid));
 
+        Integer gid = 0;
+        if (parentExten != null) {
+            gid = parentExten.getGid();
+        }
+        mapping.map("gid", new CallableContainer<>(gid));
+
+        String packageGroup = "java";
+        if (parentExten != null) {
+            packageGroup = parentExten.getPackageGroup();
+        }
+        mapping.map("packageGroup", new CallableContainer<>(packageGroup));
     }
 }

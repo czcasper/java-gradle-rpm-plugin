@@ -14,72 +14,76 @@
  * limitations under the License.
  */
 
-package com.trigonic.gradle.plugins.deb
+package com.trigonic.gradle.plugins.deb;
 
-import com.trigonic.gradle.plugins.packaging.AbstractPackagingCopyAction
-import com.trigonic.gradle.plugins.packaging.Dependency
-import com.trigonic.gradle.plugins.packaging.Link
-import groovy.text.GStringTemplateEngine
-import groovy.transform.Canonical
-import org.apache.commons.lang3.StringUtils
-import org.apache.commons.lang3.time.DateFormatUtils
-import org.gradle.api.GradleException
-import org.gradle.api.internal.file.copy.CopyAction
-import org.gradle.api.internal.file.copy.FileCopyDetailsInternal
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-import org.vafer.jdeb.Compression
-import org.vafer.jdeb.Console
-import org.vafer.jdeb.DataProducer
-import org.vafer.jdeb.Processor
-import org.vafer.jdeb.descriptors.PackageDescriptor
-import org.vafer.jdeb.producers.DataProducerLink
+import com.trigonic.gradle.plugins.packaging.AbstractPackagingCopyAction;
+import com.trigonic.gradle.plugins.packaging.Dependency;
+import com.trigonic.gradle.plugins.packaging.Link;
+import groovy.text.GStringTemplateEngine;
+import groovy.transform.Canonical;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
+import org.gradle.api.GradleException;
+import org.gradle.api.internal.file.copy.CopyAction;
+import org.gradle.api.internal.file.copy.CopySpecInternal;
+import org.gradle.api.internal.file.copy.FileCopyDetailsInternal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.vafer.jdeb.Compression;
+import org.vafer.jdeb.Console;
+import org.vafer.jdeb.DataProducer;
+import org.vafer.jdeb.Processor;
+import org.vafer.jdeb.descriptors.PackageDescriptor;
+import org.vafer.jdeb.producers.DataProducerLink;
 
 /**
  * Forked and modified from org.jamel.pkg4j.gradle.tasks.BuildDebTask
  */
 class DebCopyAction extends AbstractPackagingCopyAction {
-    static final Logger logger = LoggerFactory.getLogger(DebCopyAction.class)
+    static final Logger logger = LoggerFactory.getLogger(DebCopyAction.class);
 
-    private final GStringTemplateEngine engine = new GStringTemplateEngine()
+    private final GStringTemplateEngine engine = new GStringTemplateEngine();
 
-    Deb debTask
-    def debianDir
-    List<String> dependencies
-    List<DataProducer> dataProducers
-    List<InstallDir> installDirs
-    boolean includeStandardDefines = true
+    Deb debTask;
+    File debianDir;
+    List<String> dependencies;
+    List<DataProducer> dataProducers;
+    List<InstallDir> installDirs;
+    boolean includeStandardDefines = true;
 
     DebCopyAction(Deb debTask) {
-        super(debTask)
-        this.debTask = debTask
-        debianDir = new File(debTask.project.buildDir, "debian")
-        dependencies = []
-        dataProducers = []
-        installDirs = []
+        super(debTask);
+        this.debTask = debTask;
+//        debianDir = new File(debTask.getProject().buildDir, "debian");
+        dependencies = new ArrayList<>();
+        dataProducers = new ArrayList<>();
+        installDirs = new ArrayList<>();
     }
 
     @Canonical
     private static class InstallDir {
-        String name
-        String user
-        String group
+        String name;
+        String user;
+        String group;
     }
 
     @Override
-    void startVisit(CopyAction action) {
-        super.startVisit(action)
+    public void startVisit(CopyAction action) {
+        super.startVisit(action);
 
-        debianDir.deleteDir()
-        debianDir.mkdirs()
+//        debianDir.deleteDir();
+        debianDir.mkdirs();
 
     }
 
     @Override
-    void visitFile(FileCopyDetailsInternal fileDetails, def specToLookAt) {
-        logger.debug "adding file {}", fileDetails.relativePath.pathString
+    public void visitFile(FileCopyDetailsInternal fileDetails, CopySpecInternal specToLookAt) {
+//        logger.debug "adding file {}", fileDetails.relativePath.pathString
 
-        def outputFile = extractFile(fileDetails)
+     /*   def outputFile = extractFile(fileDetails)
 
         String path = "/" + fileDetails.relativePath.pathString
         String user = lookup(specToLookAt, 'user') ?: debTask.user
@@ -88,12 +92,12 @@ class DebCopyAction extends AbstractPackagingCopyAction {
         int gid = (int) (lookup(specToLookAt, 'gid') ?: debTask.gid)
         int fileMode = (int) (lookup(specToLookAt, 'fileMode') ?: 0)  // TODO see if -1 works for mode
 
-        dataProducers << new DataProducerFileSimple(path, outputFile, user, uid, group, gid, fileMode)
+        dataProducers << new DataProducerFileSimple(path, outputFile, user, uid, group, gid, fileMode)*/
     }
 
     @Override
-    void visitDir(FileCopyDetailsInternal dirDetails, def specToLookAt) {
-        def specCreateDirectoryEntry = lookup(specToLookAt, 'createDirectoryEntry')
+    public void visitDir(FileCopyDetailsInternal dirDetails, CopySpecInternal specToLookAt) {
+   /*     def specCreateDirectoryEntry = lookup(specToLookAt, 'createDirectoryEntry')
         boolean createDirectoryEntry = specCreateDirectoryEntry!=null ? specCreateDirectoryEntry : debTask.createDirectoryEntry
         if (createDirectoryEntry) {
 
@@ -115,24 +119,24 @@ class DebCopyAction extends AbstractPackagingCopyAction {
                     user: user,
                     group: group,
             )
-        }
+        }*/
     }
 
     @Override
     protected void addLink(Link link) {
-        dataProducers << new DataProducerLink(link.path, link.target, true, null, null, null);
+//        dataProducers << new DataProducerLink(link.path, link.target, true, null, null, null);
     }
 
     @Override
     protected void addDependency(Dependency dep) {
-        dependencies << dep.packageName // Losing version and flag info
+//        dependencies << dep.packageName // Losing version and flag info
     }
 
     @Override
     protected void end() {
-        File debFile = debTask.getArchivePath()
+        File debFile = debTask.getArchivePath();
 
-        def context = toContext()
+/*        def context = toContext()
         List<File> debianFiles = new ArrayList<String>();
 
         debianFiles << generateFile(debianDir, "control", context)
@@ -160,13 +164,13 @@ class DebCopyAction extends AbstractPackagingCopyAction {
         //def changesFile = new File("${packagePath}_all.changes")
         //createChanges(pkg, changesFile, descriptor, processor)
 
-        logger.info 'Created deb {}', debFile
+        logger.info 'Created deb {}', debFile*/
     }
 
     /**
      * Map to be consumed by generateFile when transforming template
      */
-    def Map toContext() {
+/*    def Map toContext() {
         [
                 name: debTask.getPackageName(),
                 version: debTask.getVersion(),
@@ -196,9 +200,9 @@ class DebCopyAction extends AbstractPackagingCopyAction {
                     return map
                 }
         ]
-    }
+    }*/
 
-    File generateFile(File debianDir, String fileName, Map context) {
+  /*  File generateFile(File debianDir, String fileName, Map context) {
         logger.info("Generating ${fileName} file...")
         def template = getClass().getResourceAsStream("/deb/${fileName}.ftl").newReader()
         def content = engine.createTemplate(template).make(context).toString()
@@ -206,8 +210,9 @@ class DebCopyAction extends AbstractPackagingCopyAction {
         contentFile.text = content
         return contentFile
     }
-
-    private PackageDescriptor createDeb(File[] controlFiles, File debFile, Processor processor, DataProducer[] data) {
+*/
+    
+ /*   private PackageDescriptor createDeb(File[] controlFiles, File debFile, Processor processor, DataProducer[] data) {
         try {
             logger.info("Creating debian package: ${debFile}")
             return processor.createDeb(controlFiles, data, debFile, Compression.GZIP)
@@ -215,7 +220,8 @@ class DebCopyAction extends AbstractPackagingCopyAction {
             throw new GradleException("Can't build debian package ${debFile}", e)
         }
     }
-
+*/
+    
     /*
     private void createChanges(File changes, File changesFile, PackageDescriptor descriptor, Processor processor) {
         try {

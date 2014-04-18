@@ -13,55 +13,57 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.trigonic.gradle.plugins.packaging;
 
-package com.trigonic.gradle.plugins.packaging
-
-import org.gradle.api.file.FileVisitDetails
-import org.gradle.api.internal.file.CopyActionProcessingStreamAction
-import org.gradle.api.internal.file.copy.CopyAction
-import org.gradle.api.internal.file.copy.CopyActionProcessingStream
-import org.gradle.api.internal.file.copy.CopySpecInternal
-import org.gradle.api.internal.file.copy.DefaultFileCopyDetails
-import org.gradle.api.internal.file.copy.FileCopyDetailsInternal
-import org.gradle.api.internal.tasks.SimpleWorkResult
-import org.gradle.api.tasks.WorkResult
-import org.gradle.internal.UncheckedException
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-
-import java.lang.reflect.Field
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.StringReader;
+import java.lang.reflect.Field;
+import java.util.Collection;
+import java.util.logging.Level;
+import org.gradle.api.file.FileVisitDetails;
+import org.gradle.api.internal.file.CopyActionProcessingStreamAction;
+import org.gradle.api.internal.file.copy.CopyAction;
+import org.gradle.api.internal.file.copy.CopyActionProcessingStream;
+import org.gradle.api.internal.file.copy.CopySpecInternal;
+import org.gradle.api.internal.file.copy.DefaultFileCopyDetails;
+import org.gradle.api.internal.file.copy.FileCopyDetailsInternal;
+import org.gradle.api.internal.tasks.SimpleWorkResult;
+import org.gradle.api.tasks.WorkResult;
+import org.gradle.internal.UncheckedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractPackagingCopyAction implements CopyAction {
-    static final Logger logger = LoggerFactory.getLogger(AbstractPackagingCopyAction.class)
 
-    SystemPackagingTask task
-    File tempDir
-    Collection<File> filteredFiles = []
+    static final Logger logger = LoggerFactory.getLogger(AbstractPackagingCopyAction.class);
+
+    protected SystemPackagingTask task;
+    protected File tempDir;
+    protected Collection<File> filteredFiles;
 
     protected AbstractPackagingCopyAction(SystemPackagingTask task) {
-        this.task = task
+        this.task = task;
     }
 
+    @Override
     public WorkResult execute(CopyActionProcessingStream stream) {
-
-        try {
-            startVisit(this)
-            stream.process(new StreamAction());
-            endVisit()
-        } catch (Exception e) {
-            UncheckedException.throwAsUncheckedException(e);
-        } finally {
-            visitFinally()
-        }
-
+        startVisit(this);
+        stream.process(new StreamAction());
+        endVisit();
         return new SimpleWorkResult(true);
     }
 
     // Not a static class
     private class StreamAction implements CopyActionProcessingStreamAction {
+
+        @Override
         public void processFile(FileCopyDetailsInternal details) {
             // While decoupling the spec from the action is nice, it contains some needed info
-            def ourSpec = extractSpec(details) // Can be null
+            CopySpecInternal ourSpec = extractSpec(details); // Can be null
             if (details.isDirectory()) {
                 visitDir(details, ourSpec);
             } else {
@@ -70,116 +72,180 @@ public abstract class AbstractPackagingCopyAction implements CopyAction {
         }
     }
 
-    protected abstract void visitDir(FileCopyDetailsInternal dirDetails, def specToLookAt)
-    protected abstract void visitFile(FileCopyDetailsInternal fileDetails, def specToLookAt)
+    protected abstract void visitDir(FileCopyDetailsInternal dirDetails, CopySpecInternal specToLookAt);
+
+    protected abstract void visitFile(FileCopyDetailsInternal fileDetails, CopySpecInternal specToLookAt);
+
     protected abstract void addLink(Link link);
+
     protected abstract void addDependency(Dependency dependency);
+
     protected abstract void end();
 
-    void startVisit(CopyAction action) {
+    public void startVisit(CopyAction action) {
         // Delay reading destinationDir until we start executing
-        tempDir = task.getTemporaryDir()
+        tempDir = task.getTemporaryDir();
     }
 
     void visitFinally(Exception e) {
     }
 
-    void endVisit() {
+    public void endVisit() {
+
         for (Link link : task.getAllLinks()) {
-            logger.debug "adding link {} -> {}", link.path, link.target
-            addLink link
+            logger.debug("adding link " + link.getPath() + " -> " + link.getTarget());
+            addLink(link);
         }
 
         for (Dependency dep : task.getAllDependencies()) {
-            logger.debug "adding dependency on {} {}", dep.packageName, dep.version
-            addDependency dep
+            logger.debug("adding dependency on " + dep.getPackageName() + " " + dep.getVersion());
+            addDependency(dep);
         }
 
-        end()
-
-        // TODO Clean up filteredFiles
-
+        end(); // TODO Clean up filteredFiles
         // TODO Investigate, we seem to always set to true.
     }
+    
+    // TODO suport for scripts from files.
 
-    String concat(Collection<Object> scripts) {
-        String shebang
+    protected String concat(Collection<String> scripts) {
+        String shebang = "";
         StringBuilder result = new StringBuilder();
-        scripts.each { script ->
-            script?.eachLine { line ->
-                if (line.matches('^#!.*$')) {
-                    if (!shebang) {
-                        shebang = line
-                    } else if (line != shebang) {
-                        throw new IllegalArgumentException("mismatching #! script lines")
+        if (scripts != null && !scripts.isEmpty()) {
+            for (String script : scripts) {
+                if (script != null && !script.isEmpty()) {
+                    BufferedReader bufReader = new BufferedReader(new StringReader(script));
+                    String line;
+                    try {
+                        while ((line = bufReader.readLine()) != null) {
+                            if (line.matches("^#!.*$")) {
+                                if (shebang.isEmpty()) {
+                                    shebang = line;
+                                } else if (shebang.compareTo(line) != 0) {
+                                    throw new IllegalArgumentException("mismatching #! script lines");
+                                }
+                            } else {
+                                result.append(line);
+                                result.append("\n");
+
+                            }
+                        }
+                    } catch (IOException ex) {
+                        java.util.logging.Logger.getLogger(AbstractPackagingCopyAction.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                } else {
-                    result.append line
-                    result.append "\n"
                 }
+
             }
+            if (!shebang.isEmpty()) {
+                result.insert(0, shebang + "\n");
+            }
+
         }
-        if (shebang) {
-            result.insert(0, shebang + "\n")
+
+        return result.toString();
+    }
+
+    protected String stripSheBank(File scrip) {
+        StringBuilder result = new StringBuilder();
+        if ((scrip != null) && (scrip.exists())) {
+            try {
+                BufferedReader bufReader = new BufferedReader(new FileReader(scrip));
+                String line;
+                try {
+                    while ((line = bufReader.readLine()) != null) {
+                        if (!line.matches("^#!.*$")) {
+                            result.append(line);
+                            result.append("\n");
+                        }
+                    }
+                } catch (IOException ex) {
+                    java.util.logging.Logger.getLogger(AbstractPackagingCopyAction.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            } catch (FileNotFoundException ex) {
+                java.util.logging.Logger.getLogger(AbstractPackagingCopyAction.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
         }
-        result.toString()
+        return result.toString();
     }
 
     /**
-     * Works with nulls, Strings and Files.
+     * Works with nulls, Strings.
      *
      * @param script
      * @return
      */
-    String stripShebang(Object script) {
+    protected String stripShebang(String script) {
         StringBuilder result = new StringBuilder();
-        script?.eachLine { line ->
-            if (!line.matches('^#!.*$')) {
-                result.append line
-                result.append "\n"
+        if (script != null && !script.isEmpty()) {
+            BufferedReader bufReader = new BufferedReader(new StringReader(script));
+            String line;
+            try {
+                while ((line = bufReader.readLine()) != null) {
+                    if (!line.matches("^#!.*$")) {
+                        result.append(line);
+                        result.append("\n");
+                    }
+                }
+            } catch (IOException ex) {
+                java.util.logging.Logger.getLogger(AbstractPackagingCopyAction.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        result.toString()
+        return result.toString();
 
     }
 
-    def static lookup(def specToLookAt, String propertyName) {
-        if (specToLookAt?.metaClass?.hasProperty(specToLookAt, propertyName) != null) {
-            return specToLookAt.metaClass.getProperty(specToLookAt, propertyName)
-        } else {
-            return null
-        }
-    }
+    /* def
 
-    CopySpecInternal extractSpec(FileCopyDetailsInternal fileDetails) {
-        if (fileDetails instanceof DefaultFileCopyDetails) {
-            def startingClass = fileDetails.getClass() // It's in there somewhere
-            while( startingClass != null && startingClass != DefaultFileCopyDetails) {
-                startingClass = startingClass.superclass
-            }
-            Field specField = startingClass.getDeclaredField('spec')
-            specField.setAccessible(true)
-            CopySpecInternal ret = specField.get(fileDetails)
-            return ret
-        } else {
-            return null
-        }
-    }
-    /**
-     * Look at FileDetails to get a file. If it's filtered file, we need to write it out to the filesystem ourselves.
-     * Issue #30, FileVisitDetailsImpl won't give us file, since it filters on the fly.
+     static lookup(def specToLookAt, String propertyName) {
+     if (specToLookAt ?  {
+
+     }.metaClass ?.hasProperty(specToLookAt, propertyName) != null
+        
+            
+     ) {
+     return specToLookAt.metaClass.getProperty(specToLookAt, propertyName)
+     }else {
+     return null
+     }
+     }
      */
-    File extractFile(FileVisitDetails fileDetails) {
-        File outputFile = null
+    public CopySpecInternal extractSpec(FileCopyDetailsInternal fileDetails) {
+        CopySpecInternal retValue = null;
+        if (fileDetails instanceof DefaultFileCopyDetails) {
+            Class<?> startingClass = fileDetails.getClass(); // It's in there somewhere
+            while (startingClass != null && startingClass.equals(DefaultFileCopyDetails.class)) {
+                startingClass = startingClass.getSuperclass();
+            }
+            if (startingClass != null) {
+                try {
+                    Field specField = startingClass.getDeclaredField("spec");
+                    specField.setAccessible(true);
+                    retValue = (CopySpecInternal) specField.get(fileDetails);
+                } catch (NoSuchFieldException | IllegalArgumentException | IllegalAccessException ex) {
+                    java.util.logging.Logger.getLogger(AbstractPackagingCopyAction.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+        return retValue;
+    }
+
+    /**
+     * Look at FileDetails to get a file. If it's filtered file, we need to
+     * write it out to the filesystem ourselves. Issue #30, FileVisitDetailsImpl
+     * won't give us file, since it filters on the fly.
+     */
+    public File extractFile(FileCopyDetailsInternal fileDetails) {
+        File outputFile = null;
         try {
-            outputFile = fileDetails.getFile()
+            outputFile = fileDetails.getFile();
         } catch (UnsupportedOperationException uoe) {
             // Can't access MappingCopySpecVisitor.FileVisitDetailsImpl since it's private, so we have to probe. We would test this:
             // if (fileDetails instanceof MappingCopySpecVisitor.FileVisitDetailsImpl && fileDetails.filterChain.hasFilters())
-            outputFile = new File(tempDir, fileDetails.name)
-            fileDetails.copyTo(outputFile)
-            filteredFiles << outputFile
+            outputFile = new File(tempDir, fileDetails.getName());
+            fileDetails.copyTo(outputFile);
+            filteredFiles.add(outputFile);
         }
-        return outputFile
+        return outputFile;
     }
 }

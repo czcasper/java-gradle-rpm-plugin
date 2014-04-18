@@ -13,59 +13,94 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.trigonic.gradle.plugins.rpm;
 
-package com.trigonic.gradle.plugins.rpm
+import com.trigonic.gradle.plugins.helpers.CallableContainer;
+import com.trigonic.gradle.plugins.packaging.AbstractPackagingCopyAction;
+import com.trigonic.gradle.plugins.packaging.SystemPackagingTask;
+import groovy.lang.Closure;
+import org.freecompany.redline.header.Architecture;
+import org.freecompany.redline.header.Os;
+import org.freecompany.redline.header.RpmType;
+import org.freecompany.redline.payload.Directive;
+import org.gradle.api.internal.ConventionMapping;
+import org.gradle.api.internal.IConventionAware;
 
-import com.trigonic.gradle.plugins.packaging.AbstractPackagingCopyAction
-import com.trigonic.gradle.plugins.packaging.SystemPackagingTask
-import org.freecompany.redline.header.Architecture
-import org.freecompany.redline.header.Os
-import org.freecompany.redline.header.RpmType
-import org.gradle.api.internal.ConventionMapping
-import org.gradle.api.internal.IConventionAware
+public class Rpm extends SystemPackagingTask {
 
-class Rpm extends SystemPackagingTask {
     static final String RPM_EXTENSION = "rpm";
 
     Rpm() {
-        super()
-        extension = RPM_EXTENSION
+        super();
+        super.setExtension(RPM_EXTENSION);
     }
 
     @Override
-    String assembleArchiveName() {
-        String name = getPackageName();
-        name += getVersion() ? "-${getVersion()}" : ''
-        name += getRelease() ? "-${getRelease()}" : ''
-        name += getArchString() ? ".${getArchString()}" : ''
-        name += getExtension() ? ".${getExtension()}" : ''
+    public String assembleArchiveName() {
+        String name = "";
+        if (parentExten != null) {
+            name = parentExten.getPackageName();
+            name += parentExten.getVersion();
+            name += parentExten.getRelease();
+            name += getArchString();
+            name += super.getExtension();
+        }
+
         return name;
     }
 
     @Override
     protected String getArchString() {
-        return arch?.name().toLowerCase();
+        Architecture arch = Architecture.NOARCH;
+        if (parentExten != null) {
+            arch = parentExten.getArch();
+        }
+        return arch.name().toLowerCase();
     }
 
     @Override
-    AbstractPackagingCopyAction createCopyAction() {
-        return new RpmCopyAction(this)
+    public AbstractPackagingCopyAction createCopyAction() {
+        return new RpmCopyAction(this);
     }
 
     @Override
     protected void applyConventions() {
-        super.applyConventions()
+        super.applyConventions();
 
         // For all mappings, we're only being called if it wasn't explicitly set on the task. In which case, we'll want
         // to pull from the parentExten. And only then would we fallback on some other value.
-        ConventionMapping mapping = ((IConventionAware) this).getConventionMapping()
+        ConventionMapping mapping = ((IConventionAware) this).getConventionMapping();
 
         // Could come from extension
-        mapping.map('fileType', { parentExten?.getFileType() })
-        mapping.map('addParentDirs', { parentExten?.getAddParentDirs()?:true })
-        mapping.map('arch', { parentExten?.getArch()?:Architecture.NOARCH})
-        mapping.map('os', { parentExten?.getOs()?:Os.UNKNOWN})
-        mapping.map('type', { parentExten?.getType()?:RpmType.BINARY })
+        Directive value = null;
+        if (parentExten != null) {
+            value = parentExten.getFileType();
+        }
+        mapping.map("fileType", new CallableContainer<>(value));
+
+        Boolean addDirs = true;
+        if (parentExten != null) {
+            addDirs = parentExten.isAddParentDirs();
+        }
+        mapping.map("addParentDirs", new CallableContainer<>(addDirs));
+
+        Architecture arch = Architecture.NOARCH;
+        if (parentExten != null) {
+            arch = parentExten.getArch();
+        }
+        mapping.map("arch", new CallableContainer<>(arch));
+
+        Os os = Os.UNKNOWN;
+        if (parentExten != null) {
+            os = parentExten.getOs();
+        }
+        mapping.map("os", new CallableContainer<>(os));
+
+        RpmType type = RpmType.BINARY;
+        if (parentExten != null) {
+            type = parentExten.getType();
+        }
+        mapping.map("type", new CallableContainer<>(type));
     }
 
 }

@@ -1,14 +1,16 @@
-package com.trigonic.gradle.plugins.packaging
+package com.trigonic.gradle.plugins.packaging;
 
-import org.freecompany.redline.payload.Directive
-import org.gradle.api.internal.file.copy.CopySpecInternal
+import org.freecompany.redline.payload.Directive;
+import org.gradle.api.internal.file.copy.CopySpecInternal;
 
-import java.util.logging.Logger
+import org.gradle.api.internal.file.FileResolver;
+import org.gradle.api.internal.file.copy.DefaultCopySpec;
+import org.gradle.internal.reflect.Instantiator;
 
 /**
  * Try to mark up CopySpec
  */
-@Category(CopySpecInternal)
+//@Category(CopySpecInternal)
 /**
  * CopySpec will nest in into() blocks, and Gradle will instantiate DefaultCopySpec itself, we have no ability to inject
  * our own. When appending another copy spec to the task, it'll be created a WrapperCopySpec. In 1.8, there's a slight
@@ -22,92 +24,107 @@ import java.util.logging.Logger
  * assignment form "name = value".
  *
  */
-class CopySpecEnhancement {
-    private static final Logger LOGGER = Logger.getLogger(CopySpecEnhancement.getName())
+public class CopySpecEnhancement extends DefaultCopySpec {
+    
+    protected int gid;
+    protected int uid;
+    protected boolean createDirectoryEntry;
+    protected boolean addParentDirs;
+    protected Directive fileType;
+    protected String permissionGroup;
+    protected String user;
 
-    static void user(CopySpecInternal spec, String user) {
-        spec.metaClass.user = user
+    public CopySpecEnhancement(FileResolver resolver, Instantiator instantiator, DefaultCopySpec parentSpec) {
+        super(resolver, instantiator, parentSpec);
     }
 
-    static void setUser(CopySpecInternal spec, String user) {
-        spec.metaClass.user = user
+    public CopySpecEnhancement(FileResolver resolver, Instantiator instantiator) {
+        super(resolver, instantiator);
+    }    
+
+    public void user(String user) {
+        this.user=user;
     }
 
-    static void permissionGroup(CopySpecInternal spec, String permissionGroup) {
-        spec.metaClass.permissionGroup = permissionGroup
+    public void setUser(String user) {
+        this.user=user;
     }
 
-    static void setPermissionGroup(CopySpecInternal spec, String permissionGroup) {
-        spec.metaClass.permissionGroup = permissionGroup
+    public void permissionGroup(String permissionGroup) {
+        this.permissionGroup=permissionGroup;
     }
 
-    /**
-     * RPM Only
-     */
-    static void fileType(CopySpecInternal spec, Directive fileType) {
-        spec.metaClass.fileType = fileType
-    }
-
-    /**
-     * RPM Only
-     */
-    static void setfileType(CopySpecInternal spec, Directive fileType) {
-        spec.metaClass.fileType = fileType
-    }
-
-    /**
-     * RPM Only
-     */
-    static void addParentDirs(CopySpecInternal spec, boolean addParentDirs) {
-        spec.metaClass.addParentDirs = addParentDirs
+    public void setPermissionGroup(String permissionGroup) {
+        this.permissionGroup=permissionGroup;
     }
 
     /**
      * RPM Only
      */
-    static void setAddParentDirs(CopySpecInternal spec, boolean addParentDirs) {
-        spec.metaClass.addParentDirs = addParentDirs
+    public void fileType(Directive fileType) {
+        this.fileType=fileType;
     }
 
     /**
      * RPM Only
      */
-    static void createDirectoryEntry(CopySpecInternal spec, boolean createDirectoryEntry) {
-        spec.metaClass.createDirectoryEntry = createDirectoryEntry
+    public void setfileType(Directive fileType) {
+        this.fileType=fileType;
     }
 
     /**
      * RPM Only
      */
-    static void setCreateDirectoryEntry(CopySpecInternal spec, boolean createDirectoryEntry) {
-        spec.metaClass.createDirectoryEntry = createDirectoryEntry
+    public void addParentDirs(boolean addParentDirs) {
+        this.addParentDirs=addParentDirs;
+    }
+
+    /**
+     * RPM Only
+     */
+    public void setAddParentDirs(boolean addParentDirs) {
+        this.addParentDirs=addParentDirs;
+    }
+
+    /**
+     * RPM Only
+     */
+    public void createDirectoryEntry(boolean createDirectoryEntry) {
+        this.createDirectoryEntry=createDirectoryEntry;
+    }
+
+    /**
+     * RPM Only
+     */
+    public void setCreateDirectoryEntry(boolean createDirectoryEntry) {
+        this.createDirectoryEntry=createDirectoryEntry;
     }
 
     /**
      * DEB Only
      */
-    static void uid(CopySpecInternal spec, int uid) {
-        spec.metaClass.uid = uid
+    public void uid(int uid) {
+        this.uid=uid;
     }
 
     /**
      * DEB Only
      */
-    static void setUid(CopySpecInternal spec, int uid) {
-        spec.metaClass.uid = uid
+    public void setUid(int uid) {
+        this.uid=uid;
     }
 
     /**
      * DEB Only
      */
-    static void gid(CopySpecInternal spec, int gid) {
-        spec.metaClass.gid = gid
+    public void gid(CopySpecInternal spec, int gid) {
+        this.gid=gid;
     }
 
     /**
      * DEB Only
      */
-    static void setGid(CopySpecInternal spec, int gid) {
-        spec.metaClass.gid = gid
+    public void setGid(int gid) {
+        this.gid=gid;
     }
 }

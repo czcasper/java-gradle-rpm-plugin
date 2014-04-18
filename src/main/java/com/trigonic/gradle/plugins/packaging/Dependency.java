@@ -13,11 +13,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.trigonic.gradle.plugins.packaging;
 
-package com.trigonic.gradle.plugins.packaging
+public class Dependency {
 
-class Dependency {
-    String packageName
-    String version
-    int flag = 0
+    protected String packageName;
+    protected String version;
+    protected int flag;
+
+    public Dependency(String packageName, String version, int flag) {
+        this.packageName = packageName;
+        this.version = version;
+        this.flag = flag;
+    }
+    
+    public String getPackageName() {
+        return packageName;
+    }
+
+    public void setPackageName(String packageName) {
+        this.packageName = packageName;
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
+    }
+
+    public int getFlag() {
+        return flag;
+    }
+
+    public void setFlag(int flag) {
+        this.flag = flag;
+    }
+
 }

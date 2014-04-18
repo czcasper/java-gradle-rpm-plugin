@@ -13,146 +13,190 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.trigonic.gradle.plugins.rpm;
 
-package com.trigonic.gradle.plugins.rpm
+import com.google.common.base.Preconditions;
+import com.trigonic.gradle.plugins.packaging.AbstractPackagingCopyAction;
+import com.trigonic.gradle.plugins.packaging.Dependency;
+import com.trigonic.gradle.plugins.packaging.Link;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+import java.security.NoSuchAlgorithmException;
+import java.util.Collection;
+import java.util.logging.Level;
+import org.freecompany.redline.Builder;
+import org.freecompany.redline.header.Header.HeaderTag;
+import org.freecompany.redline.header.Os;
+import org.freecompany.redline.payload.Directive;
+import org.gradle.api.internal.ConventionMapping;
+import org.gradle.api.internal.IConventionAware;
+import org.gradle.api.internal.file.copy.CopyAction;
+import org.gradle.api.internal.file.copy.CopySpecInternal;
+import org.gradle.api.internal.file.copy.FileCopyDetailsInternal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions
-import com.trigonic.gradle.plugins.packaging.AbstractPackagingCopyAction
-import com.trigonic.gradle.plugins.packaging.Dependency
-import com.trigonic.gradle.plugins.packaging.Link
-import org.freecompany.redline.Builder
-import org.freecompany.redline.header.Header.HeaderTag
-import org.freecompany.redline.payload.Directive
-import org.gradle.api.internal.file.copy.CopyAction
-import org.gradle.api.internal.file.copy.FileCopyDetailsInternal
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+public class RpmCopyAction extends AbstractPackagingCopyAction {
 
-import java.nio.channels.FileChannel
+    static final Logger logger = LoggerFactory.getLogger(RpmCopyAction.class);
 
-class RpmCopyAction extends AbstractPackagingCopyAction {
-    static final Logger logger = LoggerFactory.getLogger(RpmCopyAction.class)
-
-    Rpm rpmTask
-    Builder builder
-    boolean includeStandardDefines = true // candidate for being pushed up to packaging level
+    Rpm rpmTask;
+    Builder builder;
+    boolean includeStandardDefines = true;// candidate for being pushed up to packaging level
 
     RpmCopyAction(Rpm rpmTask) {
-        super(rpmTask)
-        this.rpmTask = rpmTask
+        super(rpmTask);
+        this.rpmTask = rpmTask;
     }
 
     @Override
-    void startVisit(CopyAction action) {
-        super.startVisit(action)
+    public void startVisit(CopyAction action) {
+        super.startVisit(action);
 
-        assert rpmTask.getVersion() != null, "RPM requires a version string"
+        assert rpmTask.getVersion() != null;
 
-        builder = new Builder()
-        builder.setPackage rpmTask.packageName, rpmTask.version, rpmTask.release
-        builder.setType rpmTask.type
-        builder.setPlatform rpmTask.arch, rpmTask.os
-        builder.setGroup rpmTask.packageGroup
-        builder.setBuildHost rpmTask.buildHost
-        builder.setSummary rpmTask.summary
-        builder.setDescription rpmTask.packageDescription
-        builder.setLicense rpmTask.license
-        builder.setPackager rpmTask.packager
-        builder.setDistribution rpmTask.distribution
-        builder.setVendor rpmTask.vendor
-        builder.setUrl rpmTask.url
-        builder.setProvides rpmTask.provides
+        builder = new Builder();
+        builder.setPackage(rpmTask.getParentExten().getPackageName(), rpmTask.getParentExten().getVersion(), rpmTask.getParentExten().getRelease());
+        builder.setType(rpmTask.getParentExten().getType());
+        builder.setPlatform(rpmTask.getParentExten().getArch(), rpmTask.getParentExten().getOs());
+        builder.setGroup(rpmTask.getParentExten().getPackageGroup());
+        builder.setBuildHost(rpmTask.getParentExten().getBuildHost());
+        builder.setSummary(rpmTask.getParentExten().getSummary());
+        builder.setDescription(rpmTask.getParentExten().getPackageDescription());
+        builder.setLicense(rpmTask.getParentExten().getLicense());
+        builder.setPackager(rpmTask.getParentExten().getPackager());
+        builder.setDistribution(rpmTask.getParentExten().getDistribution());
+        builder.setVendor(rpmTask.getParentExten().getVendor());
+        builder.setUrl(rpmTask.getParentExten().getUrl());
+        builder.setProvides(rpmTask.getParentExten().getProvides());
 
-        String sourcePackage = rpmTask.sourcePackage
-        if (!sourcePackage) {
+        String sourcePackage = rpmTask.getParentExten().getSourcePackage();
+        if (sourcePackage == null || sourcePackage.isEmpty()) {
+            //TODO Fix this missing implementation, value is comming somewhere proably from groovy injection
             // need a source package because createrepo will assume your package is a source package without it
-            sourcePackage = builder.defaultSourcePackage
+//            sourcePackage = builder.defaultSourcePackage;
         }
-        builder.addHeaderEntry HeaderTag.SOURCERPM, sourcePackage
+        builder.addHeaderEntry(HeaderTag.SOURCERPM, sourcePackage);
 
-        builder.setPreInstallScript(scriptWithUtils(rpmTask.allCommonCommands, rpmTask.allPreInstallCommands))
-        builder.setPostInstallScript(scriptWithUtils(rpmTask.allCommonCommands, rpmTask.allPostInstallCommands))
-        builder.setPreUninstallScript(scriptWithUtils(rpmTask.allCommonCommands, rpmTask.allPreUninstallCommands))
-        builder.setPostUninstallScript(scriptWithUtils(rpmTask.allCommonCommands, rpmTask.allPostUninstallCommands))
+        builder.setPreInstallScript(scriptWithUtils(rpmTask.getAllCommonCommands(), rpmTask.getAllPreInstallCommands()));
+        builder.setPostInstallScript(scriptWithUtils(rpmTask.getAllCommonCommands(), rpmTask.getAllPostInstallCommands()));
+        builder.setPreUninstallScript(scriptWithUtils(rpmTask.getAllCommonCommands(), rpmTask.getAllPostUninstallCommands()));
+        builder.setPostUninstallScript(scriptWithUtils(rpmTask.getAllCommonCommands(), rpmTask.getAllPostUninstallCommands()));
     }
 
     @Override
-    void visitFile(FileCopyDetailsInternal fileDetails, def specToLookAt) {
-        logger.debug "adding file {}", fileDetails.relativePath.pathString
-
-        def outputFile = extractFile(fileDetails)
-
-        def path = "/" + fileDetails.relativePath.pathString
-        int fileMode = lookup(specToLookAt, 'fileMode') ?: -1
-        Directive fileType = lookup(specToLookAt, 'fileType')
-        String user = lookup(specToLookAt, 'user') ?: rpmTask.user
-        String group = lookup(specToLookAt, 'permissionGroup') ?: rpmTask.permissionGroup
-
-        def specAddParentsDir = lookup(specToLookAt, 'addParentDirs')
-        boolean addParentsDir = specAddParentsDir!=null ? specAddParentsDir : rpmTask.addParentDirs
-
-        builder.addFile( path, outputFile, fileMode, -1, fileType, user, group, addParentsDir)
+    public void visitFile(FileCopyDetailsInternal fileDetails, CopySpecInternal specToLookAt) {
+        logger.debug("Adding file {0}", fileDetails.getRelativePath().getPathString());
+        File outputFile = extractFile(fileDetails);
+//        ConventionMapping mapping = ((IConventionAware) rpmTask).getConventionMapping();
+        
+        String path = "/" + fileDetails.getRelativePath().getPathString();
+        //TODO Find way how to get addtional infromation from method parameters
+/*        int fileMode = lookup(specToLookAt, 'fileMode'
+        ) ?: -1
+        Directive fileType = lookup(specToLookAt, 'fileType'
+        )
+        String user = lookup(specToLookAt, 'user'
+        ) ?: rpmTask.user String group = lookup(specToLookAt, 'permissionGroup'
+        ) ?: rpmTask.permissionGroup def specAddParentsDir = lookup(specToLookAt, 'addParentDirs'
+        )
+        boolean addParentsDir = specAddParentsDir != null ? specAddParentsDir : rpmTask.addParentDirs
+*/
+//        builder.addFile(path, outputFile, fileMode, -1, fileType, user, group, addParentsDir);
     }
 
     @Override
-    void visitDir(FileCopyDetailsInternal dirDetails, def specToLookAt) {
-        if (specToLookAt == null) {
+    public void visitDir(FileCopyDetailsInternal dirDetails, CopySpecInternal specToLookAt) {
+        // TODO find way how to extrac parameters from method parameters.
+/*        if (specToLookAt == null) {
             logger.info("Got an empty spec from ${dirDetails.class.name} for ${dirDetails.path}/${dirDetails.name}")
             return
         }
         // Have to take booleans specially, since they would fail an elvis operator if set to false
-        def specCreateDirectoryEntry = lookup(specToLookAt, 'createDirectoryEntry')
-        boolean createDirectoryEntry = specCreateDirectoryEntry!=null ? specCreateDirectoryEntry : rpmTask.createDirectoryEntry
-        def specAddParentsDir = lookup(specToLookAt, 'addParentDirs')
-        boolean addParentsDir = specAddParentsDir!=null ? specAddParentsDir : rpmTask.addParentDirs
+        def specCreateDirectoryEntry = lookup(specToLookAt, 'createDirectoryEntry'
+        )
+        boolean createDirectoryEntry = specCreateDirectoryEntry != null ? specCreateDirectoryEntry : rpmTask.createDirectoryEntry
+        def specAddParentsDir = lookup(specToLookAt, 'addParentDirs'
+        )
+        boolean addParentsDir = specAddParentsDir != null ? specAddParentsDir : rpmTask.addParentDirs
         if (createDirectoryEntry) {
-            logger.debug "adding directory {}", dirDetails.relativePath.pathString
-            builder.addDirectory(
+            logger.debug "adding directory {}", dirDetails.relativePath.pathString builder
+            .addDirectory(
                     "/" + dirDetails.relativePath.pathString,
                     (int) (lookup(specToLookAt, 'dirMode') ?: -1),
-                    (Directive) lookup(specToLookAt, 'fileType') ?: rpmTask.fileType,
-                    (String) lookup(specToLookAt, 'user') ?: rpmTask.user,
-                    (String) lookup(specToLookAt, 'permissionGroup') ?: rpmTask.permissionGroup,
+                    (Directive
+            ) lookup(specToLookAt, 'fileType') ?: rpmTask.fileType,
+                    (String
+            ) lookup(specToLookAt, 'user') ?: rpmTask.user,
+                    (String
+            ) lookup(specToLookAt, 'permissionGroup') ?: rpmTask.permissionGroup,
                     (boolean) addParentsDir
-            )
-        }
+        
+    
+
+    )
+        }*/
     }
 
     @Override
     protected void addLink(Link link) {
-        builder.addLink link.path, link.target, link.permissions
+        try {
+            builder.addLink(link.getPath(), link.getTarget(), link.getPermissions());
+        } catch (NoSuchAlgorithmException | IOException ex) {
+            java.util.logging.Logger.getLogger(RpmCopyAction.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     @Override
     protected void addDependency(Dependency dep) {
-        builder.addDependency dep.packageName, dep.version, dep.flag
+        builder.addDependency(dep.getPackageName(), dep.getFlag(), dep.getVersion());
     }
 
     @Override
     protected void end() {
-        File rpmFile = rpmTask.getArchivePath()
-        FileChannel fc = new RandomAccessFile( rpmFile, "rw").getChannel()
-        builder.build(fc)
-        logger.info 'Created rpm {}', rpmFile
+        try {
+            File rpmFile = rpmTask.getArchivePath();
+            FileChannel fc = new RandomAccessFile(rpmFile, "rw").getChannel();
+            builder.build(fc);
+            logger.info("Created rpm"+rpmFile);  
+        } catch (NoSuchAlgorithmException | IOException ex) {
+            java.util.logging.Logger.getLogger(RpmCopyAction.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
-    String standardScriptDefines() {
-        includeStandardDefines ?
-            String.format(" RPM_ARCH=%s \n RPM_OS=%s \n RPM_PACKAGE_NAME=%s \n RPM_PACKAGE_VERSION=%s \n RPM_PACKAGE_RELEASE=%s \n\n",
-                rpmTask.getArchString(),
-                rpmTask.os?.toString().toLowerCase(),
-                rpmTask.getPackageName(),
-                rpmTask.getVersion(),
-                rpmTask.getRelease()) : null
+    protected String standardScriptDefines() {
+        String retValue = "";
+        if (includeStandardDefines) {
+            retValue=String.format(" RPM_ARCH=%s \n RPM_OS=%s \n RPM_PACKAGE_NAME=%s \n RPM_PACKAGE_VERSION=%s \n RPM_PACKAGE_RELEASE=%s \n\n",
+                    rpmTask.getArchString(),
+                    rpmTask.getParentExten().getOs().toString().toLowerCase(),
+                    rpmTask.getParentExten().getPackageName(),
+                    rpmTask.getParentExten().getVersion(),
+                    rpmTask.getParentExten().getRelease());
+        }
+        return retValue;
     }
 
-    Object scriptWithUtils(List utils, List scripts) {
-        def l = []
-        def stdDefines = standardScriptDefines()
-        if(stdDefines) l.add(stdDefines)
-        l.addAll(utils)
-        l.addAll(scripts)
-
-        concat(l)
+    protected String scriptWithUtils(Collection<String> utils, Collection<String> scripts) {
+        StringBuilder retValue = new StringBuilder();
+        if(includeStandardDefines){
+            retValue.append(standardScriptDefines());
+        }
+        if(utils!=null){
+            for(String s : utils){
+                retValue.append(s);
+            }
+        }
+        
+        if(scripts!=null){
+            for (String s : scripts) {
+                retValue.append(s);
+            }
+        }
+        return retValue.toString();
+                
     }
 }

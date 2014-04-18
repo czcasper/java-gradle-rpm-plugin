@@ -1,23 +1,27 @@
-package com.trigonic.gradle.plugins.packaging
+package com.trigonic.gradle.plugins.packaging;
 
-import org.gradle.api.Action
-import org.gradle.api.Project
-import org.gradle.api.file.CopyProcessingSpec
-import org.gradle.api.file.CopySourceSpec
-import org.gradle.api.file.CopySpec
-import org.gradle.api.file.DuplicatesStrategy
-import org.gradle.api.file.FileCopyDetails
-import org.gradle.api.file.FileTree
-import org.gradle.api.file.FileTreeElement
-import org.gradle.api.file.RelativePath
-import org.gradle.api.internal.file.FileResolver
-import org.gradle.api.internal.file.copy.CopySpecInternal
-import org.gradle.api.internal.file.copy.DefaultCopySpec
-import org.gradle.api.internal.project.ProjectInternal
-import org.gradle.api.specs.Spec
-import org.gradle.internal.reflect.Instantiator
-
-import java.util.regex.Pattern
+import groovy.lang.Closure;
+import java.io.FilterReader;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+import org.gradle.api.Action;
+import org.gradle.api.Project;
+import org.gradle.api.file.CopyProcessingSpec;
+import org.gradle.api.file.CopySourceSpec;
+import org.gradle.api.file.CopySpec;
+import org.gradle.api.file.DuplicatesStrategy;
+import org.gradle.api.file.FileCopyDetails;
+import org.gradle.api.file.FileTree;
+import org.gradle.api.file.FileTreeElement;
+import org.gradle.api.file.RelativePath;
+import org.gradle.api.internal.file.FileResolver;
+import org.gradle.api.internal.file.copy.CopySpecInternal;
+import org.gradle.api.internal.file.copy.DefaultCopySpec;
+import org.gradle.api.internal.project.ProjectInternal;
+import org.gradle.api.specs.Spec;
+import org.gradle.internal.reflect.Instantiator;
 
 /**
  * An extension which can be attached to the project. This is a superset of SystemPackagingExtension because we don't
@@ -28,257 +32,274 @@ import java.util.regex.Pattern
  * CopySourceSpec's methods and the ones overriden in DelegatingCopySpec, even though that's perfectly valid
  * Java code. The theory is that it's some bug in groovyc.
  */
-public class ProjectPackagingExtension extends SystemPackagingExtension {
+public class ProjectPackagingExtension extends SystemPackagingExtension implements CopySpecInternal {
 
-    CopySpecInternal delegateCopySpec;
+    protected CopySpecEnhancement delegateCopySpec;
 
     // @Inject // Not supported yet.
     public ProjectPackagingExtension(Project project) {
         FileResolver resolver = ((ProjectInternal) project).getFileResolver();
         Instantiator instantiator = ((ProjectInternal) project).getServices().get(Instantiator.class);
-        delegateCopySpec = new DefaultCopySpec( resolver, instantiator);
-
+        delegateCopySpec = new CopySpecEnhancement(resolver, instantiator);
     }
 
 
     /*
      * Special Use cases that involve Closure's which we want to wrap:
      */
-    CopySpec from(Object sourcePath, Closure c) {
-        use(CopySpecEnhancement) {
-            return getDelegateCopySpec().from(sourcePath, c);
-        }
+    @Override
+    public CopySpec from(Object sourcePath, Closure c) {
+        return delegateCopySpec.from(sourcePath, c);
     }
 
-    CopySpec into(Object destPath, Closure configureClosure) {
-        use(CopySpecEnhancement) {
-            return getDelegateCopySpec().into(destPath, configureClosure)
-        }
+    @Override
+    public CopySpec into(Object destPath, Closure configureClosure) {
+        return delegateCopySpec.into(destPath, configureClosure);
     }
 
-    CopySpec include(Closure includeSpec) {
-        use(CopySpecEnhancement) {
-            return getDelegateCopySpec().include(includeSpec)
-        }
+    @Override
+    public CopySpec include(Closure includeSpec) {
+        return delegateCopySpec.include(includeSpec);
     }
 
-    CopySpec exclude(Closure excludeSpec) {
-        use(CopySpecEnhancement) {
-            return getDelegateCopySpec().exclude(excludeSpec)
-        }
+    @Override
+    public CopySpec exclude(Closure excludeSpec) {
+        return delegateCopySpec.exclude(excludeSpec);
     }
 
-    CopySpec filter(Closure closure) {
-        use(CopySpecEnhancement) {
-            return getDelegateCopySpec().filter(closure)
-        }
+    @Override
+    public CopySpec filter(Closure closure) {
+        return delegateCopySpec.filter(closure);
     }
 
-    CopySpec rename(Closure closure) {
-        use(CopySpecEnhancement) {
-            return getDelegateCopySpec().rename(closure)
-        }
+    @Override
+    public CopySpec rename(Closure closure) {
+        return delegateCopySpec.rename(closure);
     }
 
-    CopySpec eachFile(Closure closure) {
-        use(CopySpecEnhancement) {
-            return getDelegateCopySpec().eachFile(closure)
-        }
+    @Override
+    public CopySpec eachFile(Closure closure) {
+        return delegateCopySpec.eachFile(closure);
     }
 
     /*
      * Copy and Paste from org.gradle.api.internal.file.copy.DelegatingCopySpec, since extending it causes
      * compilation problems. The methods above are special cases and are commented out below.
      */
+    @Override
     public RelativePath getDestPath() {
-        return getDelegateCopySpec().getDestPath();
+        return delegateCopySpec.getDestPath();
     }
 
+    @Override
     public FileTree getSource() {
-        return getDelegateCopySpec().getSource();
+        return delegateCopySpec.getSource();
     }
 
+    @Override
     public boolean hasSource() {
-        return getDelegateCopySpec().hasSource();
+        return delegateCopySpec.hasSource();
     }
 
+    @Override
     public Collection<? extends Action<? super FileCopyDetails>> getAllCopyActions() {
-        return getDelegateCopySpec().getAllCopyActions();
+        return delegateCopySpec.getAllCopyActions();
     }
 
+    @Override
     public boolean isCaseSensitive() {
-        return getDelegateCopySpec().isCaseSensitive();
+        return delegateCopySpec.isCaseSensitive();
     }
 
+    @Override
     public void setCaseSensitive(boolean caseSensitive) {
-        getDelegateCopySpec().setCaseSensitive(caseSensitive);
+        delegateCopySpec.setCaseSensitive(caseSensitive);
     }
 
+    @Override
     public boolean getIncludeEmptyDirs() {
-        return getDelegateCopySpec().getIncludeEmptyDirs();
+        return delegateCopySpec.getIncludeEmptyDirs();
     }
 
+    @Override
     public void setIncludeEmptyDirs(boolean includeEmptyDirs) {
-        getDelegateCopySpec().setIncludeEmptyDirs(includeEmptyDirs);
+        delegateCopySpec.setIncludeEmptyDirs(includeEmptyDirs);
     }
 
+    @Override
     public DuplicatesStrategy getDuplicatesStrategy() {
-        return getDelegateCopySpec().getDuplicatesStrategy();
+        return delegateCopySpec.getDuplicatesStrategy();
     }
 
+    @Override
     public void setDuplicatesStrategy(DuplicatesStrategy strategy) {
-        getDelegateCopySpec().setDuplicatesStrategy(strategy);
+        delegateCopySpec.setDuplicatesStrategy(strategy);
     }
 
+    @Override
     public CopySpec filesMatching(String pattern, Action<? super FileCopyDetails> action) {
-        return getDelegateCopySpec().filesMatching(pattern, action);
+        return delegateCopySpec.filesMatching(pattern, action);
     }
 
+    @Override
     public CopySpec filesNotMatching(String pattern, Action<? super FileCopyDetails> action) {
-        return getDelegateCopySpec().filesNotMatching(pattern, action);
+        return delegateCopySpec.filesNotMatching(pattern, action);
     }
 
+    @Override
     public CopySpec with(CopySpec... sourceSpecs) {
-        return getDelegateCopySpec().with(sourceSpecs);
+        return delegateCopySpec.with(sourceSpecs);
     }
 
-    public CopySourceSpec from(Object... sourcePaths) {
-        return getDelegateCopySpec().from(sourcePaths);
-    }
-
-//    public CopySpec from(Object sourcePath, Closure c) {
-//        return getDelegateCopySpec().from(sourcePath, c);
-//    }
-
+    @Override
     public CopySpec setIncludes(Iterable<String> includes) {
-        return getDelegateCopySpec().setIncludes(includes);
+        return delegateCopySpec.setIncludes(includes);
     }
 
+    @Override
     public CopySpec setExcludes(Iterable<String> excludes) {
-        return getDelegateCopySpec().setExcludes(excludes);
+        return delegateCopySpec.setExcludes(excludes);
     }
 
+    @Override
     public CopySpec include(String... includes) {
-        return getDelegateCopySpec().include(includes);
+        return delegateCopySpec.include(includes);
     }
 
+    @Override
     public CopySpec include(Iterable<String> includes) {
-        return getDelegateCopySpec().include(includes);
+        return delegateCopySpec.include(includes);
     }
 
+    @Override
     public CopySpec include(Spec<FileTreeElement> includeSpec) {
-        return getDelegateCopySpec().include(includeSpec);
+        return delegateCopySpec.include(includeSpec);
     }
 
-//    public CopySpec include(Closure includeSpec) {
-//        return getDelegateCopySpec().include(includeSpec);
-//    }
-
+    @Override
     public CopySpec exclude(String... excludes) {
-        return getDelegateCopySpec().exclude(excludes);
+        return delegateCopySpec.exclude(excludes);
     }
 
+    @Override
     public CopySpec exclude(Iterable<String> excludes) {
-        return getDelegateCopySpec().exclude(excludes);
+        return delegateCopySpec.exclude(excludes);
     }
 
+    @Override
     public CopySpec exclude(Spec<FileTreeElement> excludeSpec) {
-        return getDelegateCopySpec().exclude(excludeSpec);
+        return delegateCopySpec.exclude(excludeSpec);
     }
 
-//    public CopySpec exclude(Closure excludeSpec) {
-//        return getDelegateCopySpec().exclude(excludeSpec);
-//    }
-
+    @Override
     public CopySpec into(Object destPath) {
-        return getDelegateCopySpec().into(destPath);
+        return delegateCopySpec.into(destPath);
     }
 
-//    public CopySpec into(Object destPath, Closure configureClosure) {
-//        return getDelegateCopySpec().into(destPath, configureClosure);
-//    }
-
-//    public CopySpec rename(Closure closure) {
-//        return getDelegateCopySpec().rename(closure);
-//    }
-
+    @Override
     public CopySpec rename(String sourceRegEx, String replaceWith) {
-        return getDelegateCopySpec().rename(sourceRegEx, replaceWith);
+        return delegateCopySpec.rename(sourceRegEx, replaceWith);
     }
 
+    @Override
     public CopyProcessingSpec rename(Pattern sourceRegEx, String replaceWith) {
-        return getDelegateCopySpec().rename(sourceRegEx, replaceWith);
+        return delegateCopySpec.rename(sourceRegEx, replaceWith);
     }
 
+    @Override
     public CopySpec filter(Map<String, ?> properties, Class<? extends FilterReader> filterType) {
-        return getDelegateCopySpec().filter(properties, filterType);
+        return delegateCopySpec.filter(properties, filterType);
     }
 
+    @Override
     public CopySpec filter(Class<? extends FilterReader> filterType) {
-        return getDelegateCopySpec().filter(filterType);
+        return delegateCopySpec.filter(filterType);
     }
 
-//    public CopySpec filter(Closure closure) {
-//        return getDelegateCopySpec().filter(closure);
-//    }
-
+    @Override
     public CopySpec expand(Map<String, ?> properties) {
-        return getDelegateCopySpec().expand(properties);
+        return delegateCopySpec.expand(properties);
     }
 
+    @Override
     public CopySpec eachFile(Action<? super FileCopyDetails> action) {
-        return getDelegateCopySpec().eachFile(action);
+        return delegateCopySpec.eachFile(action);
     }
 
-//    public CopySpec eachFile(Closure closure) {
-//        return getDelegateCopySpec().eachFile(closure);
-//    }
-
+    @Override
     public Integer getFileMode() {
-        return getDelegateCopySpec().getFileMode();
+        return delegateCopySpec.getFileMode();
     }
 
+    @Override
     public CopyProcessingSpec setFileMode(Integer mode) {
-        return getDelegateCopySpec().setFileMode(mode);
+        return delegateCopySpec.setFileMode(mode);
     }
 
+    @Override
     public Integer getDirMode() {
-        return getDelegateCopySpec().getDirMode();
+        return delegateCopySpec.getDirMode();
     }
 
+    @Override
     public CopyProcessingSpec setDirMode(Integer mode) {
-        return getDelegateCopySpec().setDirMode(mode);
+        return delegateCopySpec.setDirMode(mode);
     }
 
+    @Override
     public Set<String> getIncludes() {
-        return getDelegateCopySpec().getIncludes();
+        return delegateCopySpec.getIncludes();
     }
 
+    @Override
     public Set<String> getExcludes() {
-        return getDelegateCopySpec().getExcludes();
+        return delegateCopySpec.getExcludes();
     }
 
+    @Override
     public Iterable<CopySpecInternal> getChildren() {
-        return getDelegateCopySpec().getChildren();
+        return delegateCopySpec.getChildren();
     }
 
+    @Override
     public FileTree getAllSource() {
-        return getDelegateCopySpec().getAllSource();
+        return delegateCopySpec.getAllSource();
     }
 
+    @Override
     public DefaultCopySpec addChild() {
-        return getDelegateCopySpec().addChild();
+        return delegateCopySpec.addChild();
     }
 
+    @Override
     public DefaultCopySpec addFirst() {
-        return getDelegateCopySpec().addFirst();
+        return delegateCopySpec.addFirst();
     }
 
+    @Override
     public void walk(Action<? super CopySpecInternal> action) {
         action.execute(this);
         for (CopySpecInternal child : getChildren()) {
             child.walk(action);
         }
+    }
+
+    @Override
+    public DefaultCopySpec addChildBeforeSpec(CopySpecInternal csi) {
+        return delegateCopySpec.addChildBeforeSpec(csi);
+    }
+
+    @Override
+    public CopySpec from(Object... os) {
+        return delegateCopySpec.from(os);
+    }
+
+    public CopySpecEnhancement getDelegateCopySpec() {
+        return delegateCopySpec;
+    }
+
+    public void setDelegateCopySpec(CopySpecEnhancement delegateCopySpec) {
+        this.delegateCopySpec = delegateCopySpec;
     }
 
 }

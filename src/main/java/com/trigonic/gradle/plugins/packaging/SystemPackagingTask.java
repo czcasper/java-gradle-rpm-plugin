@@ -13,35 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.trigonic.gradle.plugins.packaging;
 
-package com.trigonic.gradle.plugins.packaging
-
-import org.gradle.api.internal.ConventionMapping
-import org.gradle.api.internal.IConventionAware
-import org.gradle.api.logging.Logger
-import org.gradle.api.logging.Logging
-import org.gradle.api.tasks.AbstractCopyTask
-import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.bundling.AbstractArchiveTask
+import com.trigonic.gradle.plugins.helpers.CallableContainer;
+import groovy.lang.Closure;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.List;
+import java.util.concurrent.Callable;
+import org.gradle.api.internal.ConventionMapping;
+import org.gradle.api.internal.IConventionAware;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
+import org.gradle.api.tasks.AbstractCopyTask;
+import org.gradle.api.tasks.TaskAction;
+import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 
 public abstract class SystemPackagingTask extends AbstractArchiveTask {
-    private static Logger logger = Logging.getLogger(SystemPackagingTask);
 
-    @Delegate
-    SystemPackagingExtension exten // Not File extension or ext list of properties, different kind of Extension
+    protected SystemPackagingExtension exten; // Not File extension or ext list of properties, different kind of Extension
 
-    ProjectPackagingExtension parentExten
+    protected ProjectPackagingExtension parentExten;
 
     // TODO Add conventions to pull from extension
+    public SystemPackagingTask() {
+        super();
+        exten = new SystemPackagingExtension();
+        parentExten = getProject().getExtensions().findByType(ProjectPackagingExtension.class);
 
-    SystemPackagingTask() {
-        super()
-        exten = new SystemPackagingExtension()
-
-        // I have no idea where Project came from
-        parentExten = project.extensions.findByType(ProjectPackagingExtension)
-        if(parentExten) {
-            getRootSpec().with(parentExten.delegateCopySpec)
+        if (parentExten != null) {
+            getRootSpec().with(parentExten.getDelegateCopySpec());
         }
     }
 
@@ -49,131 +50,280 @@ public abstract class SystemPackagingTask extends AbstractArchiveTask {
     protected void applyConventions() {
         // For all mappings, we're only being called if it wasn't explicitly set on the task. In which case, we'll want
         // to pull from the parentExten. And only then would we fallback on some other value.
-        ConventionMapping mapping = ((IConventionAware) this).getConventionMapping()
+        ConventionMapping mapping = ((IConventionAware) this).getConventionMapping(); // Could come from extension
+        String value = null;
+        if (parentExten != null) {
+            value = parentExten.getPackageName();
+        }
+        if (value == null) {
+            value = this.getBaseName();
+        }
+        mapping.map("packageName", new CallableContainer<>((value == null) ? "" : value));
 
-        // Could come from extension
-        mapping.map('packageName', {
-            // BasePlugin defaults this to pluginConvention.getArchivesBaseName(), which in turns comes form project.name
-            parentExten?.getPackageName()?:getBaseName()
-        })
-        mapping.map('release', { parentExten?.getRelease()?:getClassifier() })
-        mapping.map('version', { parentExten?.getVersion()?:project.getVersion().toString() })
-        mapping.map('user', { parentExten?.getUser()?:getPackager() })
-        mapping.map('permissionGroup', { parentExten?.getPermissionGroup()?:'' })
-        mapping.map('packageGroup', { parentExten?.getPackageGroup() })
-        mapping.map('buildHost', { parentExten?.getBuildHost()?:getLocalHostName() })
-        mapping.map('summary', { parentExten?.getSummary()?:getPackageName() })
-        mapping.map('packageDescription', { parentExten?.getPackageDescription()?:project.getDescription() })
-        mapping.map('license', { parentExten?.getLicense()?:'' })
-        mapping.map('packager', { parentExten?.getPackager()?:System.getProperty('user.name', '')  })
-        mapping.map('distribution', { parentExten?.getDistribution()?:'' })
-        mapping.map('vendor', { parentExten?.getVendor()?:'' })
-        mapping.map('url', { parentExten?.getUrl()?:'' })
-        mapping.map('sourcePackage', { parentExten?.getSourcePackage()?:'' })
-        mapping.map('provides', { parentExten?.getProvides()?:getPackageName() })
-        mapping.map('createDirectoryEntry', { parentExten?.getCreateDirectoryEntry()?:false })
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getRelease();
+        }
+        if (value == null) {
+            value = this.getClassifier();
+        }
+        mapping.map("release", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getVersion();
+        }
+        if (value == null) {
+            value = getProject().getVersion().toString();
+        }
+        mapping.map("version", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getUser();
+            if (value == null) {
+                value = parentExten.getPackager();
+            }
+
+        }
+        mapping.map("user", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getPermissionGroup();
+        }
+        mapping.map("permissionGroup", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getPackageGroup();
+        }
+        mapping.map("packageGroup", new CallableContainer<>((value == null) ? "" : value));
+
+        if (parentExten != null) {
+            value = parentExten.getBuildHost();
+        }else{
+            value = getLocalHostName();
+        }
+        mapping.map("buildHost", new CallableContainer<>(value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getSummary();
+            if (value == null) {
+                value = parentExten.getPackageName();
+            }
+        }
+        mapping.map("summary", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getPackageDescription();
+        }
+        if (value == null) {
+            value = getProject().getDescription();
+        }
+        mapping.map("packageDescription", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getLicense();
+        }
+        mapping.map("license", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getPackager();
+        }
+        if (value == null) {
+            value = System.getProperty("user.name");
+        }
+        mapping.map("packager", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getDistribution();
+        }
+        mapping.map("distribution", new CallableContainer<>((value == null) ? "" : value));
+        
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getVendor();
+        }
+        mapping.map("vendor", new CallableContainer<>((value == null) ? "" : value));
+        
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getUrl();
+        }
+        mapping.map("url", new CallableContainer<>((value == null) ? "" : value));
+        
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getSourcePackage();
+        }
+        mapping.map("sourcePackage", new CallableContainer<>((value == null) ? "" : value));
+
+        value = null;
+        if (parentExten != null) {
+            value = parentExten.getProvides();
+            if (value == null) {
+                value = parentExten.getPackageName();
+            }
+        }
+        mapping.map("provides", new CallableContainer<>((value == null) ? "" : value));
+        
+        Boolean boolValue = null;
+        if(parentExten !=null){
+            boolValue = parentExten.isCreateDirectoryEntry();
+        }
+        mapping.map("createDirectoryEntry", new CallableContainer<>((boolValue == null) ? false : boolValue));
+
 
         // Task Specific
-        mapping.map('archiveName', { assembleArchiveName() })
+        mapping.map("archiveName", new CallableContainer<>(assembleArchiveName()));
     }
 
-    abstract String assembleArchiveName();
+    public abstract String assembleArchiveName();
 
     protected static String getLocalHostName() {
         try {
-            return InetAddress.localHost.hostName
+            return InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException ignore) {
-            return "unknown"
+            return "unknown";
         }
     }
 
     @Override
     @TaskAction
     protected void copy() {
+        // TODO find where is this copy action comming from.
+  /*      if(parentExten!=null){
+            parentExten.;
+        }
         use(CopySpecEnhancement) {
             super.copy()
         }
+          */
     }
 
-    def getAllPreInstallCommands() {
-        return getPreInstallCommands() + parentExten?.getPreInstallCommands()
-    }
-
-    def getAllPostInstallCommands() {
-        return getPostInstallCommands() + parentExten?.getPostInstallCommands()
-    }
-
-    def getAllPreUninstallCommands() {
-        return getPreUninstallCommands() + parentExten?.getPreUninstallCommands()
-    }
-
-    def getAllPostUninstallCommands() {
-        return getPostUninstallCommands() + parentExten?.getPostUninstallCommands()
-    }
-
-    def getAllCommonCommands() {
-        return getCommonCommands() + parentExten?.getCommonCommands()
-    }
-
-    List<Link> getAllLinks() {
-        if(parentExten) {
-            return getLinks() + parentExten.getLinks()
-        } else {
-            return getLinks()
+    public List<String> getAllPreInstallCommands() {
+        List<String> retValue=null;
+        if(parentExten!=null){
+            retValue = parentExten.getPreInstallCommands();
         }
+        return retValue;
     }
 
-    List<Dependency> getAllDependencies() {
-        if(parentExten) {
-            return getDependencies() + parentExten.getDependencies()
-        } else {
-            return getDependencies()
+    public List<String> getAllPostInstallCommands() {
+        List<String> retValue=null;
+        if(parentExten!=null){
+            retValue = parentExten.getPostInstallCommands();
         }
+        return retValue;
     }
 
-    @Override
-    abstract AbstractPackagingCopyAction createCopyAction()
+    public List<String> getAllPreUninstallCommands() {
+        List<String> retValue=null;
+        if(parentExten!=null){
+            retValue = parentExten.getPreUninstallCommands();
+        }
+        return retValue;
+    }
 
-    protected abstract String getArchString();
+    public List<String> getAllPostUninstallCommands() {
+        List<String> retValue=null;
+        if(parentExten!=null){
+            retValue = parentExten.getPostUninstallCommands();
+        }
+        return retValue;
+    }
+
+    public List<String> getAllCommonCommands() {
+        List<String> retValue=null;
+        if(parentExten!=null){
+            retValue = parentExten.getCommonCommands();
+        }
+        return retValue;
+    }
+
+    public List<Link> getAllLinks() {
+        List<Link> retValue = null;
+        if (parentExten!=null) {
+            retValue =parentExten.getLinks();
+        }
+        return retValue;
+    }
+
+    public List<Dependency> getAllDependencies() {
+        List<Dependency> retValue = null;
+        if (parentExten!=null) {
+            retValue =parentExten.getDependencies();
+        }
+        return retValue;
+    }
 
     @Override
     public AbstractCopyTask from(Object sourcePath, Closure c) {
-        use(CopySpecEnhancement) {
+        if(parentExten!=null){
+            parentExten.from(sourcePath, c);
+        }else{
             getMainSpec().from(sourcePath, c);
         }
-        return this
+        return this;
     }
 
     @Override
-    def AbstractArchiveTask into(Object destPath, Closure configureClosure) {
-        use(CopySpecEnhancement) {
-            getMainSpec().into(destPath, configureClosure)
+    public AbstractArchiveTask into(Object destPath, Closure configureClosure) {
+        if(parentExten!=null){
+            parentExten.into(destPath, configureClosure);
+        }else{
+            getMainSpec().into(destPath, configureClosure);
         }
-        return this
+        return this;
     }
 
     @Override
     public AbstractCopyTask exclude(Closure excludeSpec) {
-        use(CopySpecEnhancement) {
-            getMainSpec().exclude(excludeSpec)
+        if(parentExten!=null){
+            parentExten.exclude(excludeSpec);
+        }else{
+            getMainSpec().exclude(excludeSpec);
         }
-        return this
+        return this;
     }
 
     @Override
     public AbstractCopyTask filter(Closure closure) {
-        use(CopySpecEnhancement) {
-            getMainSpec().filter(closure)
+        if(parentExten!=null){
+            parentExten.filter(closure);
+        }else{
+            getMainSpec().filter(closure);
         }
-        return this
+        return this;
     }
 
     @Override
     public AbstractCopyTask rename(Closure closure) {
-        use(CopySpecEnhancement) {
-            getMainSpec().rename(closure)
+        if(parentExten!=null){
+            parentExten.rename(closure);
+        }else{
+            getMainSpec().rename(closure);
         }
-        return this
+        return this;
     }
 
+    public ProjectPackagingExtension getParentExten() {
+        return parentExten;
+    }
+
+    public void setParentExten(ProjectPackagingExtension parentExten) {
+        this.parentExten = parentExten;
+    }
+
+    @Override
+    public abstract AbstractPackagingCopyAction createCopyAction();
+
+    protected abstract String getArchString();
+    
 }
