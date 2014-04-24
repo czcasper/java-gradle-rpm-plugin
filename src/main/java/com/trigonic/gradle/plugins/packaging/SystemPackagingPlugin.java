@@ -29,15 +29,16 @@ import org.gradle.api.logging.Logging;
 public class SystemPackagingPlugin implements Plugin<Project> {
     private static Logger logger = Logging.getLogger(SystemPackagingPlugin.class);
 
-    Project project;
-    Deb debTask;
-    Rpm rpmTask;
+    protected Project project;
+    protected Deb debTask;
+    protected Rpm rpmTask;
 
     @Override
     public void apply(Project project) {
 
         this.project = project;
 
+//        project.
         this.project.getPlugins().apply(SystemPackagingBasePlugin.class);
         rpmTask=(Rpm) project.getTasks().getByName("buildRpm");
         debTask= (Deb) project.getTasks().getByName("buildDeb");
